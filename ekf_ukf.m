@@ -1,0 +1,198 @@
+%% SCRIPT 2: EKF_UKF_filters.m
+clear all; close all; clc;
+load('dataset_elicottero.mat');
+
+%% Inizializzazione Variabili
+dt = log_vars.dt;
+N = length(log_vars.t);
+p = log_vars.p;
+
+x_hat_EKF = log_vars.x_hat_0;
+P_EKF = log_vars.P_0;
+x_hat_UKF = log_vars.x_hat_0;
+P_UKF = log_vars.P_0;
+
+% Matrici di covarianza (Tuning dei filtri)
+Q = diag([1e-5, 1e-3, 1e-5, 1e-3]); % Rumore di processo [alpha, alpha_dot, beta, beta_dot]
+R = diag([0.05, 0.01]);             % Rumore di misura [Acc, Mag]
+
+% Loggers
+log_EKF.x_hat = zeros(4, N);
+log_EKF.x_hat_pred = zeros(4, N);
+log_EKF.P_pred = zeros(4,4,N);
+log_EKF.P_corr = zeros(4,4,N);
+log_EKF.F_matrix = zeros(4,4,N); % Utile per l'RTS
+
+log_UKF.x_hat = zeros(4, N);
+
+%% Loop principale
+for k = 1:N
+    u_k = log_vars.u(:,k);
+    y_k = log_vars.y_meas(:,k);
+    
+    if k == 1
+        log_EKF.x_hat(:,k) = x_hat_EKF;
+        log_UKF.x_hat(:,k) = x_hat_UKF;
+        continue;
+    end
+    
+    % ================= EKF =================
+    % 1. Predizione EKF
+    [x_pred_EKF, P_pred_EKF, F_k] = predict_EKF(x_hat_EKF, P_EKF, Q, dt, u_k(:,1), p);
+    log_EKF.x_hat_pred(:,k) = x_pred_EKF;
+    log_EKF.P_pred(:,:,k) = P_pred_EKF;
+    log_EKF.F_matrix(:,:,k) = F_k;
+    
+    % 2. Correzione EKF
+    [x_hat_EKF, P_EKF] = correct_EKF(x_pred_EKF, P_pred_EKF, R, y_k, p);
+    log_EKF.x_hat(:,k) = x_hat_EKF;
+    log_EKF.P_corr(:,:,k) = P_EKF;
+    
+    % ================= UKF =================
+    % 1. Predizione UKF
+    [x_pred_UKF, P_pred_UKF] = predict_UKF(x_hat_UKF, P_UKF, Q, dt, u_k(:,1), p);
+    
+    % 2. Correzione UKF
+    [x_hat_UKF, P_UKF] = correct_UKF(x_pred_UKF, P_pred_UKF, R, y_k, p);
+    log_UKF.x_hat(:,k) = x_hat_UKF;
+end
+
+save('EKF_smoother_data.mat', 'log_EKF', 'log_vars');
+
+%% Plot dei risultati EKF vs UKF vs Truth
+figure;
+titles = {'\alpha (Pitch) [rad]', '\dot{\alpha} (Pitch Rate) [rad/s]', '\beta (Yaw) [rad]', '\dot{\beta} (Yaw Rate) [rad/s]'};
+for i=1:4
+    subplot(2,2,i); hold on; grid on;
+    plot(log_vars.t, log_vars.x_T(i,:), 'k', 'LineWidth', 1.5);
+    plot(log_vars.t, log_EKF.x_hat(i,:), 'r--', 'LineWidth', 1.2);
+    plot(log_vars.t, log_UKF.x_hat(i,:), 'b-.', 'LineWidth', 1.2);
+    title(titles{i});
+    if i==1, legend('Ground Truth', 'EKF', 'UKF'); end
+end
+
+
+%% ================= FUNZIONI EKF =================
+function [x_pred, P_pred, F] = predict_EKF(x, P, Q, dt, u, p)
+    % Sistema non lineare: f(x, u)
+    alpha = x(1); alpha_dot = x(2); beta = x(3); beta_dot = x(4);
+    F1 = u(1); F2 = u(2);
+    
+    J_beta = p.J_y * sin(alpha)^2 + (p.J_z + p.m*p.l^2)*cos(alpha)^2 + p.I_b;
+    alpha_ddot = (-p.c_alpha*alpha_dot - p.m*p.g*p.l*sin(alpha) + p.l*F1*cos(beta) + p.eps_p*p.l*F2*sin(beta)) / p.J_alpha;
+    beta_ddot  = (-p.c_beta*beta_dot + p.l*F2*cos(alpha) + p.eps_y*p.l*F1*sin(alpha)) / J_beta;
+    
+    x_pred = [alpha + dt * alpha_dot;
+              alpha_dot + dt * alpha_ddot;
+              beta + dt * beta_dot;
+              beta_dot + dt * beta_ddot];
+          
+    % Calcolo Jacobiano numerico F per semplificare le derivate complesse di J_beta
+    F = eye(4);
+    delta = 1e-5;
+    for i=1:4
+        x_pert = x; x_pert(i) = x_pert(i) + delta;
+        a_p = x_pert(1); a_d_p = x_pert(2); b_p = x_pert(3); b_d_p = x_pert(4);
+        J_b_p = p.J_y * sin(a_p)^2 + (p.J_z + p.m*p.l^2)*cos(a_p)^2 + p.I_b;
+        a_dd_p = (-p.c_alpha*a_d_p - p.m*p.g*p.l*sin(a_p) + p.l*F1*cos(b_p) + p.eps_p*p.l*F2*sin(b_p)) / p.J_alpha;
+        b_dd_p  = (-p.c_beta*b_d_p + p.l*F2*cos(a_p) + p.eps_y*p.l*F1*sin(a_p)) / J_b_p;
+        f_pert = [a_p + dt*a_d_p; a_d_p + dt*a_dd_p; b_p + dt*b_d_p; b_d_p + dt*b_dd_p];
+        F(:,i) = (f_pert - x_pred) / delta;
+    end
+    
+    P_pred = F * P * F' + Q;
+end
+
+function [x_corr, P_corr] = correct_EKF(x_pred, P_pred, R, y, p)
+    % Misure previste: h(x)
+    hat_y = [-p.g * sin(x_pred(1));
+              cos(x_pred(1)) * sin(x_pred(3))];
+          
+    % Jacobiano analitico H
+    H = [-p.g * cos(x_pred(1)), 0, 0, 0;
+         -sin(x_pred(1))*sin(x_pred(3)), 0, cos(x_pred(1))*cos(x_pred(3)), 0];
+     
+    S = H * P_pred * H' + R;
+    L = P_pred * H' / S;
+    
+    e = y - hat_y; % Nessun atan2 perché non sono misurazioni angolari assolute DOA
+    x_corr = x_pred + L * e;
+    P_corr = (eye(4) - L * H) * P_pred;
+end
+
+%% ================= FUNZIONI UKF =================
+function [x_pred, P_pred] = predict_UKF(x, P, Q, dt, u, p)
+    [x_pred, P_pred] = UnscentedTransform_F(x, P, Q, dt, u, p);
+end
+
+function [x_corr, P_corr] = correct_UKF(x_pred, P_pred, R, y, p)
+    [hat_y, S, Pxy] = UnscentedTransform_H(x_pred, P_pred, R, p);
+    L = Pxy / S;
+    e = y - hat_y; 
+    x_corr = x_pred + L * e;
+    P_corr = P_pred - L * S * L';
+end
+
+function [mean_f, cov_f] = UnscentedTransform_F(x, P, Q, dt, u, p)
+    n = length(x);
+    alpha = 1e-3; kappa = 0; beta = 2;
+    lambda = alpha^2 * (n + kappa) - n;
+    
+    w_m = [lambda/(n+lambda), repmat(1/(2*(n+lambda)), 1, 2*n)];
+    w_c = w_m; w_c(1) = w_c(1) + (1 - alpha^2 + beta);
+    
+    [U, S_mat, ~] = svd(P);
+    GAMMA = U * sqrt(S_mat);
+    
+    sigmas = zeros(n, 2*n+1);
+    sigmas(:,1) = x;
+    for i = 1:n
+        sigmas(:, i+1)   = x + sqrt(n+lambda)*GAMMA(:,i);
+        sigmas(:, i+1+n) = x - sqrt(n+lambda)*GAMMA(:,i);
+    end
+    
+    sigmas_f = zeros(n, 2*n+1);
+    for i = 1:size(sigmas, 2)
+        al = sigmas(1,i); al_d = sigmas(2,i); be = sigmas(3,i); be_d = sigmas(4,i);
+        J_b = p.J_y * sin(al)^2 + (p.J_z + p.m*p.l^2)*cos(al)^2 + p.I_b;
+        al_dd = (-p.c_alpha*al_d - p.m*p.g*p.l*sin(al) + p.l*u(1)*cos(be) + p.eps_p*p.l*u(2)*sin(be)) / p.J_alpha;
+        be_dd = (-p.c_beta*be_d + p.l*u(2)*cos(al) + p.eps_y*p.l*u(1)*sin(al)) / J_b;
+        sigmas_f(:,i) = [al + dt*al_d; al_d + dt*al_dd; be + dt*be_d; be_d + dt*be_dd];
+    end
+    
+    mean_f = sigmas_f * w_m';
+    tilde_f = sigmas_f - mean_f;
+    cov_f = (tilde_f .* w_c) * tilde_f' + Q;
+end
+
+function [mean_h, cov_h, cross_cov] = UnscentedTransform_H(x, P, R, p)
+    n = length(x);
+    alpha = 1e-3; kappa = 0; beta = 2;
+    lambda = alpha^2 * (n + kappa) - n;
+    
+    w_m = [lambda/(n+lambda), repmat(1/(2*(n+lambda)), 1, 2*n)];
+    w_c = w_m; w_c(1) = w_c(1) + (1 - alpha^2 + beta);
+    
+    [U, S_mat, ~] = svd(P);
+    GAMMA = U * sqrt(S_mat);
+    
+    sigmas = zeros(n, 2*n+1);
+    sigmas(:,1) = x;
+    for i = 1:n
+        sigmas(:, i+1)   = x + sqrt(n+lambda)*GAMMA(:,i);
+        sigmas(:, i+1+n) = x - sqrt(n+lambda)*GAMMA(:,i);
+    end
+    
+    sigmas_h = zeros(2, 2*n+1);
+    for i = 1:size(sigmas, 2)
+        sigmas_h(1,i) = -p.g * sin(sigmas(1,i));
+        sigmas_h(2,i) = cos(sigmas(1,i)) * sin(sigmas(3,i));
+    end
+    
+    mean_h = sigmas_h * w_m';
+    tilde_h = sigmas_h - mean_h;
+    cov_h = (tilde_h .* w_c) * tilde_h' + R;
+    
+    tilde_x = sigmas - x;
+    cross_cov = (tilde_x .* w_c) * tilde_h';
+end
