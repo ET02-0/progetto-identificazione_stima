@@ -10,14 +10,13 @@ p.eps_p = 0.1; p.eps_y = 0.1; p.g = 9.81;
 
 % Setup simulazione
 dt = 0.01;
-t_max = 10;
+t_max = 100;
 t = 0:dt:t_max;
 N = length(t);
 
 % Vettori di stato e ingressi reali
 x_T = zeros(4, N);
 x_T(:,1) = [0.1; 0; 0.1; 0]; % Stato iniziale [alpha, dot_alpha, beta, dot_beta]
-% Alpha: Pitch -- Beta: Yaw
 
 % Ingressi di controllo u = [F1; F2] (Usiamo dei segnali eccitanti per
 % testare i filtri) ------[Sono abbastanza eccitanti??]------
@@ -32,11 +31,6 @@ std_v_mag = 0.05; % Rumore magnetometro
 y_meas = zeros(2, N);
 
 % Integrazione di Eulero per Ground Truth e Misure
-% [USA EULERO IN AVANTI CHE CONOSCIAMO E VA BENE, IL BRO GEMINI DICE CHE
-% POTREBBE GENERARE DEI PROBLEMI A LUNGO ANDARE, UNA SPECIE DI DERIVA
-% NUMERICA. LUI CONSIGLIA DI SOSTITUIRLO CON IL METODO Runge-Kutta 4 (RK4),
-% PERCHE è IL METODO CHE VIENE USATO PRATICAMENTE QUANDO FACCIAMO LE COSE
-% SU SIMULINK CON IL SOLUTORE ODE4]
 for k = 1:N-1
     alpha = x_T(1,k); alpha_dot = x_T(2,k);
     beta = x_T(3,k);  beta_dot = x_T(4,k);
@@ -56,12 +50,7 @@ for k = 1:N-1
     x_T(4,k+1) = beta_dot + dt * (beta_ddot + std_w_beta_dot * randn);
     
     % Generazione misure (Accelerometro X, Magnetometro Y) con rumore
-    y_meas(1,k+1) = -p.g * sin(x_T(1,k+1)) + std_v_acc * randn;  
-    % Usando questa formula per y_meas(1, k+1) sto considerando che il sensore si trovi sul perno di rotazione
-    % Assunzione da tenere di conto oppure generalizzando la posizione del
-    % sensore, va modificata la formula.
-    % In caso di cambiamento va ca,biato anche nel EKF e UKF (correct_EKF e
-    % UNSCENTEDTRASFORM_H)
+    y_meas(1,k+1) = -p.g * sin(x_T(1,k+1)) + std_v_acc * randn;
     y_meas(2,k+1) = cos(x_T(1,k+1)) * sin(x_T(3,k+1)) + std_v_mag * randn;
 end
 
@@ -77,23 +66,17 @@ log_vars.p = p;
 
 log_vars.Q_true = diag([0, (std_w_alpha_dot*dt)^2, 0, (std_w_beta_dot*dt)^2]);
 log_vars.R_true = diag([std_v_acc^2, std_v_mag^2]);
-
-% Inizializzazione per i filtri (leggermente sballata rispetto al vero)
-log_vars.x_hat_0 = [0.1; 0; 0.1; 0];
-log_vars.P_0 = eye(4) * 0.1;
-
-%% PARAMETRI PER TUNING
 % std_w_alpha_dot e std_w_beta_dot: Rappresentano quanta incertezza c'è sul
-% modello, più sono alti meno ci fidiamo delle equazioni fisiche e più seguiremo il rumore
+% modello, parametri modificabili (tuning) --> più sono alti meno ci
+% fidiamo delle equazioni fisiche e più seguiremo il rumore
 
 % std_v_acc e std_v_mag: Derivano dai datasheet dei sensori scelti. Più sono 
 % bassi, più si dice al filtro "i miei sensori sono perfetti", rischiando di far 
 % impazzire la stima se il rumore reale è invece alto.
 
-% P_0 = eye(4) * 0.1: Rappresenta l'incertezza sulla condizione iniziale. 
-% Visto che lo stato reale parte da [0.1; 0; 0.1; 0] e il filtro da [0; 0; 0; 0], 
-% un valore di 0.1 sulla diagonale permette al filtro di correggere rapidamente 
-% l'errore iniziale senza divergere.
+% Inizializzazione per i filtri (leggermente sballata rispetto al vero)
+log_vars.x_hat_0 = [0; 0; 0; 0];
+log_vars.P_0 = eye(4) * 0.1;
 
 save('dataset_elicottero.mat', 'log_vars');
 disp('Dataset generato con successo!');
