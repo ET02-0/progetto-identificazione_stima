@@ -95,3 +95,57 @@ Questi sono i parametri "software" che gli algoritmi di Kalman usano per fidarsi
 - Stima e Incertezza Iniziale (x_hat_0, P_0):
     Cosa fanno: Definiscono la condizione di partenza a $t=0$ per i blocchi Unit Delay di EKF e UKF.
     Effetto: Mettere un errore iniziale deliberato (es. far partire l'elicottero fermo, ma dire al filtro che l'angolo di pitch è 85 gradi) serve per fare gli "stress test". Un P_0 elevato aiuterà il filtro a convergere rapidamente al valore vero ignorando la falsa partenza iniziale.
+
+
+# Confronto tra l'implementazione fornita a lezione e l'implementazione sviluppata per il progetto
+# Codici EKF E UKF
+
+## Differenze nell'implementazione dell'Extended Kalman Filter (EKF)
+
+Negli esempi forniti a lezione i Jacobiani del modello dinamico e del modello di misura vengono ricavati analiticamente e implementati esplicitamente all'interno del codice. Questa scelta è particolarmente efficace per modelli di dimensioni ridotte e con espressioni matematiche relativamente semplici.
+
+Nel progetto si è invece scelto di calcolare numericamente il Jacobiano della dinamica mediante differenze finite. Per ogni stato viene introdotta una piccola perturbazione e viene stimata la derivata locale della funzione di transizione. Questa soluzione rende il codice più generale e facilmente adattabile a modelli complessi, evitando il calcolo manuale di derivate spesso lunghe e soggette a errori.
+
+Il Jacobiano del modello di misura è stato invece mantenuto in forma analitica, poiché la sua espressione risulta sufficientemente compatta e facilmente derivabile.
+
+Dal punto di vista concettuale il funzionamento dell'EKF rimane invariato: il filtro continua a utilizzare una linearizzazione locale del modello non lineare per propagare la covarianza e aggiornare la stima.
+
+---
+
+## Differenze nell'implementazione dell'Unscented Kalman Filter (UKF)
+
+La differenza più significativa tra il codice fornito a lezione e quello sviluppato per il progetto riguarda la gestione del rumore di processo.
+
+Nel codice didattico viene utilizzata una formulazione di tipo **Augmented UKF**. In questo approccio il vettore di stato viene esteso includendo esplicitamente le variabili di rumore di processo. I sigma points vengono quindi generati nello spazio aumentato stato-rumore e successivamente propagati attraverso il modello non lineare.
+
+Questa formulazione consente di rappresentare in maniera molto accurata gli effetti del rumore, ma comporta un aumento della dimensione del problema e quindi del numero di sigma points da propagare.
+
+Nel progetto è stata invece adottata una formulazione **Additive Noise UKF**, assumendo che il rumore di processo entri additivamente nella dinamica. In questo caso i sigma points vengono generati esclusivamente sullo stato e la matrice di covarianza del rumore di processo viene aggiunta successivamente alla covarianza predetta.
+
+Questa scelta riduce il costo computazionale, semplifica l'implementazione e risulta adeguata per il modello considerato, mantenendo prestazioni equivalenti nei casi in cui il rumore possa essere trattato come additivo.
+
+---
+
+## Parametri della trasformazione Unscented
+
+Un'ulteriore differenza riguarda i parametri utilizzati nella Unscented Transform.
+
+Negli esempi forniti a lezione viene utilizzato:
+
+[
+\alpha = 1,\quad \beta = 2,\quad \kappa = 0
+]
+
+Questa scelta produce sigma points relativamente dispersi attorno alla media e consente di esplorare in maniera più ampia le non linearità del modello.
+
+Nel progetto si è scelto invece:
+
+[
+\alpha = 10^{-3},\quad \beta = 2,\quad \kappa = 0
+]
+
+che rappresenta una configurazione molto diffusa in letteratura. I sigma points risultano maggiormente concentrati attorno alla stima corrente e consentono una migliore approssimazione locale quando il sistema opera in prossimità del punto di linearizzazione.
+
+## Codici RTS
+
+Non ci sono grosse differenze, le uniche preseni riguardano i grafici e l'uso che si fa di RTS per la validazione.
