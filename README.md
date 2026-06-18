@@ -66,3 +66,32 @@ Implementazione del regolarizzatore di Rauch-Tung-Striebel (RTS) per ottenere la
 - Integrazione Simulink-MATLAB: Sfrutta i log avanzati esportati dal blocco EKF in Simulink (specificamente lo stato predetto x_pred_EKF, la covarianza a priori P_pred_EKF e la Jacobiana di transizione F_EKF).
 - Ricorsione Backward: L'algoritmo parte dall'istante finale $t=N$ e "riavvolge" il tempo fino a $t=1$, calcolando il guadagno di smoothing $C_k$ tramite divisione matriciale (/) per garantire il condizionamento numerico.
 - Dimostrazione Teorica: Lo script è progettato per dimostrare analiticamente il teorema della riduzione dell'incertezza (covariance shrinkage). Produce grafici che evidenziano come i limiti di confidenza $\pm 3\sigma$ dell'RTS siano sistematicamente e strettamente inferiori a quelli del filtro forward (EKF), validando matematicamente la superiorità della stima offline.
+
+PARAMETRI CON CUI GIOCARE
+Guida al Tuning: I Parametri di Progetto
+Il comportamento del sistema e le performance degli stimatori possono essere alterati modificando specifici parametri. Tutti i parametri principali sono centralizzati nello script di inizializzazione (gen_dataset.m) per essere caricati nel Workspace prima di lanciare la simulazione.
+
+A. Parametri Fisici e "Ground Truth" (La Realtà)
+Modificare questi parametri cambia il modo in cui l'impianto fisico si comporta e la qualità dei sensori scelti. Si trovano nello Script di Inizializzazione.
+- Ingressi di Controllo (u / Segnali Sinusoidali):
+    Cosa fanno: Rappresentano le forze applicate dai rotori. Cambiarne l'ampiezza o la frequenza altera quanto l'elicottero oscilla.
+    Effetto: Segnali molto aggressivi spingono il sistema in regimi fortemente non lineari (grandi angoli), mettendo in crisi l'EKF e facendo risaltare la superiorità dell'UKF.Dove si modificano: In Simulink, direttamente nei blocchi Sine Wave all'ingresso dell'impianto (Ampiezza, Frequenza, Fase).
+- Passo di Campionamento (dt):
+    Cosa fa: Definisce la frequenza di esecuzione del solutore e dei filtri (es. 0.01 = 100 Hz).
+    Effetto: Aumentare il dt (es. 0.05 o 0.1) degrada l'accuratezza dell'integrazione numerica e delle derivate dell'EKF, causando ritardi di fase maggiori e perdita di tracking nei transienti.
+- Rumori Reali (std_w_alpha_dot, std_w_beta_dot, std_v_acc, std_v_mag):
+    Cosa fanno: Rappresentano la fisica del disturbo (es. raffiche di vento sulle velocità) e la reale imprecisione costruttiva dei sensori IMU.
+    Dove si applicano: Vengono usati per calcolare la Noise Power nei blocchi Band-Limited White Noise in Simulink (Formula: $\text{Varianza} \times dt$).
+
+B. Parametri dei Filtri (Il Tuning degli Stimatori)
+Questi sono i parametri "software" che gli algoritmi di Kalman usano per fidarsi più o meno del modello matematico rispetto ai sensori. Si modificano nello Script di Inizializzazione.
+- Matrice di Covarianza del Rumore di Processo (Q):
+    Cosa fa: Quantifica quanta "sfiducia" ha il filtro nelle proprie equazioni interne (es. approssimazioni di Eulero, attriti non modellati).
+    Effetto: * Aumentare Q (Tuning Robusto): Rende il filtro più reattivo e veloce a seguire i cambiamenti bruschi, allargando i limiti di confidenza a $\pm 3\sigma$ (utile per riassorbire problemi di inconsistenza statistica e ritardi di fase). Tuttavia, rende la stima più "tremolante" e rumorosa.
+        Diminuire Q: Rende la traiettoria stimata molto liscia, ma lenta e soggetta a ritardi se la dinamica reale è molto nervosa.
+- Matrice di Covarianza del Rumore di Misura (R):
+    Cosa fa: Indica al filtro quanto deve fidarsi dei sensori IMU.
+    Effetto: Se R viene impostata artificialmente più alta rispetto alla reale varianza dei sensori (es. si dichiara $0.05$ per l'accelerometro anche se quello reale ha $0.01$), il filtro si fiderà meno delle misure e agirà da "passa-basso", addolcendo la curva ma rischiando di ignorare variazioni reali veloci.
+- Stima e Incertezza Iniziale (x_hat_0, P_0):
+    Cosa fanno: Definiscono la condizione di partenza a $t=0$ per i blocchi Unit Delay di EKF e UKF.
+    Effetto: Mettere un errore iniziale deliberato (es. far partire l'elicottero fermo, ma dire al filtro che l'angolo di pitch è 85 gradi) serve per fare gli "stress test". Un P_0 elevato aiuterà il filtro a convergere rapidamente al valore vero ignorando la falsa partenza iniziale.
