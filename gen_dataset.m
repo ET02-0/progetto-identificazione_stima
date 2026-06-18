@@ -29,6 +29,9 @@ std_w_beta_dot = 0.05;
 std_v_acc = 0.2; % Rumore accelerometro
 std_v_mag = 0.05; % Rumore magnetometro
 
+Q = diag([0, (std_w_alpha_dot*dt)^2, 0, (std_w_beta_dot*dt)^2]);
+R = diag([std_v_acc^2, std_v_mag^2]);
+
 y_meas = zeros(2, N);
 
 % Integrazione di Eulero per Ground Truth e Misure
@@ -75,8 +78,8 @@ log_vars.u = u;
 log_vars.y_meas = y_meas;
 log_vars.p = p;
 
-log_vars.Q_true = diag([0, (std_w_alpha_dot*dt)^2, 0, (std_w_beta_dot*dt)^2]);
-log_vars.R_true = diag([std_v_acc^2, std_v_mag^2]);
+log_vars.Q_true = Q;
+log_vars.R_true = R;
 
 % Inizializzazione per i filtri (leggermente sballata rispetto al vero)
 log_vars.x_hat_0 = [0.1; 0; 0.1; 0];
