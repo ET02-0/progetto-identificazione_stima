@@ -13,6 +13,22 @@ dt = 0.01;
 t_max = 10;
 t = 0:dt:t_max;
 N = length(t);
+% ==========================================
+% DINAMICA DEGLI ATTUATORI
+% ==========================================
+% 1. Dati Nominali Attuatori (Parametri Modificabili)
+omega_n = 30;   % [rad/s] Pulsazione naturale (motori veloci)
+zeta = 0.7;     % Smorzamento (leggermente sottosmorzato per reattività)
+tau_d = 0.02;   % [s] Ritardo di trasporto (20 ms)
+
+% 2. Variabili per il blocco della Dinamica del Secondo Ordine
+num_2nd = [omega_n^2];
+den_2nd = [1, 2*zeta*omega_n, omega_n^2];
+
+% 3. Variabili per il blocco Approssimazione di Padé del 1° Ordine
+num_pade = [-tau_d/2, 1];
+den_pade = [tau_d/2, 1];
+
 
 % Vettori di stato e ingressi reali
 x_T = zeros(4, N);
@@ -21,7 +37,12 @@ x_T(:,1) = [0.1; 0; 0.1; 0]; % Stato iniziale [alpha, dot_alpha, beta, dot_beta]
 
 % Ingressi di controllo u = [F1; F2] (Usiamo dei segnali eccitanti per
 % testare i filtri) ------[Sono abbastanza eccitanti??]------
-u = [0.5 * sin(2*t); 0.3 * cos(1.5*t)]; 
+% Creazione modello attuatori (TF) e filtraggio ingressi (lsim = "simulink via codice")
+sys_act = tf(num_2nd, den_2nd) * tf(num_pade, den_pade);
+u_raw = [0.5 * sin(2*t); 0.3 * cos(1.5*t)]; 
+u_act = zeros(2, N);
+u_act(1,:) = lsim(sys_act, u_raw(1,:), t)';
+u_act(2,:) = lsim(sys_act, u_raw(2,:), t)';
 
 % Rumore di processo e misura (Deviazioni standard)
 std_w_alpha_dot = 0.05; 
@@ -34,47 +55,38 @@ R = diag([std_v_acc^2, std_v_mag^2]);
 
 y_meas = zeros(2, N);
 
-% Integrazione di Eulero per Ground Truth e Misure
-% [USA EULERO IN AVANTI CHE CONOSCIAMO E VA BENE, IL BRO GEMINI DICE CHE
-% POTREBBE GENERARE DEI PROBLEMI A LUNGO ANDARE, UNA SPECIE DI DERIVA
-% NUMERICA. LUI CONSIGLIA DI SOSTITUIRLO CON IL METODO Runge-Kutta 4 (RK4),
-% PERCHE è IL METODO CHE VIENE USATO PRATICAMENTE QUANDO FACCIAMO LE COSE
-% SU SIMULINK CON IL SOLUTORE ODE4]
+% Funzione derivata per RK4 (Dinamica Non Lineare)
+dynamics = @(x, u_in) [ ...
+    x(2); ... % alpha_dot
+    (-p.c_alpha*x(2) - p.m*p.g*p.l*sin(x(1)) + p.l*u_in(1)*cos(x(3)) + p.eps_p*p.l*u_in(2)*sin(x(3))) / p.J_alpha; ... % alpha_ddot
+    x(4); ... % beta_dot
+    (-p.c_beta*x(4) + p.l*u_in(2)*cos(x(1)) + p.eps_y*p.l*u_in(1)*sin(x(1))) / (p.J_y * sin(x(1))^2 + (p.J_z + p.m*p.l^2)*cos(x(1))^2 + p.I_b) ... % beta_ddot
+];
+
+% 6. Ciclo RK4
+disp('Simulazione RK4 in corso...');
 for k = 1:N-1
-    alpha = x_T(1,k); alpha_dot = x_T(2,k);
-    beta = x_T(3,k);  beta_dot = x_T(4,k);
-    F1 = u(1,k);      F2 = u(2,k);
+    u_k = u_act(:,k);
+    w_k = [0; std_w_alpha_dot * randn; 0; std_w_beta_dot * randn]; % Rumore di processo
     
-    % Dinamica J_beta dipendente da alpha
-    J_beta = p.J_y * sin(alpha)^2 + (p.J_z + p.m*p.l^2)*cos(alpha)^2 + p.I_b;
+    k1 = dynamics(x_T(:,k), u_k);
+    k2 = dynamics(x_T(:,k) + 0.5*dt*k1, u_k);
+    k3 = dynamics(x_T(:,k) + 0.5*dt*k2, u_k);
+    k4 = dynamics(x_T(:,k) + dt*k3, u_k);
     
-    % Equazioni del moto
-    alpha_ddot = (-p.c_alpha*alpha_dot - p.m*p.g*p.l*sin(alpha) + p.l*F1*cos(beta) + p.eps_p*p.l*F2*sin(beta)) / p.J_alpha;
-    beta_ddot  = (-p.c_beta*beta_dot + p.l*F2*cos(alpha) + p.eps_y*p.l*F1*sin(alpha)) / J_beta;
+    x_T(:,k+1) = x_T(:,k) + (dt/6)*(k1 + 2*k2 + 2*k3 + k4) + w_k*sqrt(dt);
     
-    % Aggiornamento stato reale (con rumore di processo sulle accelerazioni)
-    x_T(1,k+1) = alpha + dt * alpha_dot;
-    x_T(2,k+1) = alpha_dot + dt * (alpha_ddot + std_w_alpha_dot * randn);
-    x_T(3,k+1) = beta + dt * beta_dot;
-    x_T(4,k+1) = beta_dot + dt * (beta_ddot + std_w_beta_dot * randn);
-    
-    % Generazione misure (Accelerometro X, Magnetometro Y) con rumore
+    % Generazione misure
     y_meas(1,k+1) = -p.g * sin(x_T(1,k+1)) + std_v_acc * randn;  
-    % Usando questa formula per y_meas(1, k+1) sto considerando che il sensore si trovi sul perno di rotazione
-    % Assunzione da tenere di conto oppure generalizzando la posizione del
-    % sensore, va modificata la formula.
-    % In caso di cambiamento va ca,biato anche nel EKF e UKF (correct_EKF e
-    % UNSCENTEDTRASFORM_H)
     y_meas(2,k+1) = cos(x_T(1,k+1)) * sin(x_T(3,k+1)) + std_v_mag * randn;
 end
-
 % Salva i dati strutturati come fa Costanzi detto Rick (mi devo ricordare di
 % cancellare i commenti idioti)
 log_vars.t = t;
 log_vars.dt = dt;
 log_vars.t_max = t_max;
 log_vars.x_T = x_T;
-log_vars.u = u;
+log_vars.u = u_act;
 log_vars.y_meas = y_meas;
 log_vars.p = p;
 
@@ -82,8 +94,13 @@ log_vars.Q_true = Q;
 log_vars.R_true = R;
 
 % Inizializzazione per i filtri (leggermente sballata rispetto al vero)
-log_vars.x_hat_0 = [0.1; 0; 0.1; 0];
+log_vars.x_hat_0 = [0; 0; 0; 0];
 log_vars.P_0 = eye(4) * 0.1;
+
+% Inizializzazione sistema vero
+x_0 = [0.1; 0; 0.1; 0]; % Stato iniziale reale
+u_0 = [0; 0];           % Condizione iniziale del ritardo ingressi
+
 
 %% PARAMETRI PER TUNING
 % std_w_alpha_dot e std_w_beta_dot: Rappresentano quanta incertezza c'è sul
@@ -97,6 +114,17 @@ log_vars.P_0 = eye(4) * 0.1;
 % Visto che lo stato reale parte da [0.1; 0; 0.1; 0] e il filtro da [0; 0; 0; 0], 
 % un valore di 0.1 sulla diagonale permette al filtro di correggere rapidamente 
 % l'errore iniziale senza divergere.
+
+% --- AGGIUNTA PER IL SALVATAGGIO IN log_vars ---
+log_vars.attuatori.omega_n = omega_n;
+log_vars.attuatori.zeta    = zeta;
+log_vars.attuatori.tau_d   = tau_d;
+log_vars.attuatori.num_2nd = num_2nd;
+log_vars.attuatori.den_2nd = den_2nd;
+log_vars.attuatori.num_pade = num_pade;
+log_vars.attuatori.den_pade = den_pade;
+
+disp('✅ Parametri degli attuatori caricati correttamente nel workspace.');
 
 save('dataset_elicottero.mat', 'log_vars');
 disp('Dataset generato con successo!');

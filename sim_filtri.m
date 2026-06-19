@@ -1,6 +1,18 @@
 % Estrazione dati da Simulink e Analisi Grafica EKF vs UKF
 close all; clc;
+% --- INSERISCI IL CODICE QUI ---
+set(0, 'DefaultFigureColor', 'w');
+set(0, 'DefaultAxesColor', 'w');
+set(0, 'DefaultAxesXColor', 'k');
+set(0, 'DefaultAxesYColor', 'k');
+set(0, 'DefaultTextColor', 'k');
+set(0, 'DefaultLegendTextColor', 'k');
+set(0, 'DefaultLineLineWidth', 1.5);
 
+set(0, 'DefaultLegendColor', 'w');      % Sfondo bianco della legenda
+set(0, 'DefaultLegendTextColor', 'k');  % Testo nero della legenda
+set(0, 'DefaultLegendEdgeColor', 'k');  % Bordo nero della legenda
+% -------------------------------
 disp('Estrazione dei dati da Simulink in corso...');
 
 % =======================================================
@@ -98,6 +110,15 @@ title('Confronto Errori Quadratici Medi Globali');
 legend('EKF', 'UKF');
 
 disp('Analisi completata con successo! Dati salvati per lo Smoother RTS.');
+
+
+% Se hai già delle figure aperte, aggiornale tutte in un colpo solo:
+h = findall(0, 'Type', 'figure');
+for i = 1:length(h)
+    set(h(i), 'Color', 'w');
+    ax = findall(h(i), 'Type', 'axes');
+    set(ax, 'Color', 'w', 'XColor', 'k', 'YColor', 'k', 'GridColor', 'k');
+end
 
 % =======================================================
 % FUNZIONE HELPER LOCALE
