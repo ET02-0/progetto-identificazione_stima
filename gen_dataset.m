@@ -45,12 +45,17 @@ u_act(1,:) = lsim(sys_act, u_raw(1,:), t)';
 u_act(2,:) = lsim(sys_act, u_raw(2,:), t)';
 
 % Rumore di processo e misura (Deviazioni standard)
-std_w_alpha_dot = 0.05; 
-std_w_beta_dot = 0.05;
+std_w_alpha = 0.01; %NEW
+std_w_beta = 0.01;  %NEW
+% std_w_alpha_dot = 0.05; OLD 
+std_w_alpha_dot = 1;
+% std_w_beta_dot = 0.05; OLD
+std_w_beta_dot = 1;
+
 std_v_acc = 0.2; % Rumore accelerometro
 std_v_mag = 0.05; % Rumore magnetometro
 
-Q = diag([0, (std_w_alpha_dot*dt)^2, 0, (std_w_beta_dot*dt)^2]);
+Q = diag([(std_w_alpha*dt)^2, (std_w_alpha_dot*dt)^2, (std_w_beta*dt)^2, (std_w_beta_dot*dt)^2]);
 R = diag([std_v_acc^2, std_v_mag^2]);
 
 y_meas = zeros(2, N);

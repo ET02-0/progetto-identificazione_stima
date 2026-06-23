@@ -149,3 +149,21 @@ che rappresenta una configurazione molto diffusa in letteratura. I sigma points 
 ## Codici RTS
 
 Non ci sono grosse differenze, le uniche preseni riguardano i grafici e l'uso che si fa di RTS per la validazione.
+
+# VENTO
+Nel modello simulink è stato aggiunta la simulazione del vento. Sono stati aggiunti 3 gradini che portano dopo 5 secondi una folata di vento di 3m/s in tutte le direzioni. Questa folata non viene semplicemente aggiunta dopo aver creato la dinamica, ma viene data in input alla funzione della dinamica in modo da poterla modellare nel modo più accurato possibile:
+1. Trasformazione di Coordinate: Il vento viene inizialmente definito come un vettore di velocità tridimensionale nel sistema di riferimento inerziale (solidale al terreno). Affinché possa interagire con la struttura, questo vettore viene proiettato nel sistema di riferimento locale dell'elicottero (Body frame) moltiplicandolo per una matrice di rotazione istantanea, dipendente dagli attuali angoli di beccheggio e imbardata.
+
+2. Calcolo delle Forze Aerodinamiche (Drag): Poiché l'elicottero è vincolato a un fulcro fisso e non presenta velocità di traslazione lineare globale, la velocità relativa dell'aria percepita dalla struttura coincide in modulo (e con verso opposto) con la velocità del vento proiettata nel Body frame. Sfruttando la densità dell'aria e stimando un parametro geometrico di resistenza aerodinamica equivalente sui tre assi ($C_d A$), viene calcolato il vettore delle forze di drag proporzionale al quadrato della velocità relativa.
+
+3. Conversione in Coppie di Disturbo: Le forze aerodinamiche non causano traslazioni, ma agendo a una certa distanza dal perno centrale (il braccio della struttura), generano dei momenti torcenti. Nello specifico, la componente verticale della forza genera una coppia di disturbo attorno all'asse di beccheggio, mentre la componente laterale genera una coppia attorno all'asse di imbardata.
+
+4. Integrazione nelle Equazioni Differenziali: Come ultimo passaggio, queste coppie di disturbo aerodinamico vengono sommate algebricamente ai momenti di controllo generati dalla spinta dei due rotori. Di conseguenza, le accelerazioni angolari risultanti ($\ddot{\alpha}$ e $\ddot{\beta}$) riflettono fedelmente la competizione tra l'azione di controllo dei motori, le dinamiche intrinseche del sistema (gravità, attriti, inerzie incrociate) e la perturbazione esogena causata dalle folate di vento.
+
+Su matlab sono stati aggiunti tutti i grafici relativi ad esso.
+
+# TO DO
+- Valutare la Q per i vari parametri di confronto
+- Rendere robusto con il vento
+- Test
+- Relazione
