@@ -61,6 +61,7 @@ err_UKF = x_T - log_UKF.x_hat;
 err_EKF_W = x_T_W - log_EKF.x_hat_W;
 err_UKF_W = x_T_W - log_UKF.x_hat_W;
 
+%{
 % =======================================================
 % 3. GENERAZIONE GRAFICI AVANZATI
 % =======================================================
@@ -201,6 +202,192 @@ end
 % =======================================================
 % FUNZIONE HELPER LOCALE
 % =======================================================
+function data = get_sim_data(sim_var)
+    if isa(sim_var, 'timeseries')
+        data = sim_var.Data;
+    else
+        data = sim_var;
+    end
+    data = squeeze(data);
+    if ismatrix(data) && size(data, 1) > size(data, 2)
+        data = data';
+    end
+end
+%}
+% =======================================================
+% 3. GENERAZIONE GRAFICI AVANZATI (SCENARIO NOMINALE)
+% =======================================================
+disp('Generazione dei grafici separati per lo scenario nominale...');
+titles = {'$\alpha$ (Pitch) [rad]', '$\dot{\alpha}$ (Pitch Rate) [rad/s]', '$\beta$ (Yaw) [rad]', '$\dot{\beta}$ (Yaw Rate) [rad/s]'};
+
+%% TRAIETTORIE EKF
+figure('Name', 'Traiettorie EKF (Nominale)', 'NumberTitle', 'off');
+for i=1:4
+    subplot(2,2,i); hold on; grid on;
+    plot(t, x_T(i,:), 'k', 'DisplayName', 'True State');
+    plot(t, log_EKF.x_hat(i,:), 'b--', 'DisplayName', 'EKF'); % EKF IN BLU
+    title(titles{i}, 'Interpreter', 'latex');
+    if i==1, legend('Location', 'best'); end
+end
+
+%% TRAIETTORIE UKF
+figure('Name', 'Traiettorie UKF (Nominale)', 'NumberTitle', 'off');
+for i=1:4
+    subplot(2,2,i); hold on; grid on;
+    plot(t, x_T(i,:), 'k', 'DisplayName', 'True State');
+    plot(t, log_UKF.x_hat(i,:), 'r--', 'DisplayName', 'UKF'); % UKF IN ROSSO
+    title(titles{i}, 'Interpreter', 'latex');
+    if i==1, legend('Location', 'best'); end
+end
+
+%% ERRORI E BOUNDS EKF
+figure('Name', 'Errori e Bounds 3-Sigma EKF (Nominale)', 'NumberTitle', 'off');
+for i=1:4
+    sigma_EKF = squeeze(sqrt(log_EKF.P_corr(i,i,:)))';
+    subplot(2,2,i); hold on; grid on;
+    plot(t, err_EKF(i,:), 'b', 'DisplayName', 'Errore EKF'); % BLU
+    plot(t,  3*sigma_EKF, 'k--', 'DisplayName', '$\pm 3\sigma$');
+    plot(t, -3*sigma_EKF, 'k--', 'HandleVisibility', 'off');
+    title(['Errore su ', titles{i}], 'Interpreter', 'latex');
+    if i==1, legend('Interpreter', 'latex'); end
+end
+
+%% ERRORI E BOUNDS UKF
+figure('Name', 'Errori e Bounds 3-Sigma UKF (Nominale)', 'NumberTitle', 'off');
+for i=1:4
+    sigma_UKF = squeeze(sqrt(log_UKF.P_corr(i,i,:)))';
+    subplot(2,2,i); hold on; grid on;
+    plot(t, err_UKF(i,:), 'r', 'DisplayName', 'Errore UKF'); % ROSSO
+    plot(t,  3*sigma_UKF, 'k--', 'DisplayName', '$\pm 3\sigma$');
+    plot(t, -3*sigma_UKF, 'k--', 'HandleVisibility', 'off');
+    title(['Errore su ', titles{i}], 'Interpreter', 'latex');
+    if i==1, legend('Interpreter', 'latex'); end
+end
+
+%% INNOVAZIONI SEPARATE
+meas_labels = {'Innovazione Accelerometro', 'Innovazione Magnetometro'};
+figure('Name', 'Innovazioni EKF (Nominale)', 'NumberTitle', 'off');
+for i=1:2
+    subplot(2,1,i); hold on; grid on;
+    plot(t, log_EKF.innovation(i,:), 'b'); % BLU
+    ylabel(meas_labels{i});
+    if i==1, title('Innovazioni EKF'); end
+end
+
+figure('Name', 'Innovazioni UKF (Nominale)', 'NumberTitle', 'off');
+for i=1:2
+    subplot(2,1,i); hold on; grid on;
+    plot(t, log_UKF.innovation(i,:), 'r'); % ROSSO
+    ylabel(meas_labels{i});
+    if i==1, title('Innovazioni UKF'); end
+end
+
+
+% =======================================================
+% 4. GENERAZIONE GRAFICI AVANZATI (SCENARIO VENTO)
+% =======================================================
+disp('Generazione dei grafici separati per lo scenario con VENTO...');
+titles_W = {'$\alpha$ (Pitch) + WIND [rad]', '$\dot{\alpha}$ (Pitch Rate) + WIND [rad/s]', '$\beta$ (Yaw) + WIND [rad]', '$\dot{\beta}$ (Yaw Rate) + WIND [rad/s]'};
+
+%% TRAIETTORIE EKF + WIND
+figure('Name', 'Traiettorie EKF (+ WIND)', 'NumberTitle', 'off');
+for i=1:4
+    subplot(2,2,i); hold on; grid on;
+    plot(t, x_T_W(i,:), 'k', 'DisplayName', 'True State');
+    plot(t, log_EKF.x_hat_W(i,:), 'b--', 'DisplayName', 'EKF');
+    title(titles_W{i}, 'Interpreter', 'latex');
+    if i==1, legend('Location', 'best'); end
+end
+
+%% TRAIETTORIE UKF + WIND
+figure('Name', 'Traiettorie UKF (+ WIND)', 'NumberTitle', 'off');
+for i=1:4
+    subplot(2,2,i); hold on; grid on;
+    plot(t, x_T_W(i,:), 'k', 'DisplayName', 'True State');
+    plot(t, log_UKF.x_hat_W(i,:), 'r--', 'DisplayName', 'UKF');
+    title(titles_W{i}, 'Interpreter', 'latex');
+    if i==1, legend('Location', 'best'); end
+end
+
+%% ERRORI E BOUNDS EKF + WIND
+figure('Name', 'Errori e Bounds 3-Sigma EKF (+ WIND)', 'NumberTitle', 'off');
+for i=1:4
+    sigma_EKF_W = squeeze(sqrt(log_EKF.P_corr_W(i,i,:)))';
+    subplot(2,2,i); hold on; grid on;
+    plot(t, err_EKF_W(i,:), 'b', 'DisplayName', 'Errore EKF');
+    plot(t,  3*sigma_EKF_W, 'k--', 'DisplayName', '$\pm 3\sigma$');
+    plot(t, -3*sigma_EKF_W, 'k--', 'HandleVisibility', 'off');
+    title(['Errore su ', titles_W{i}], 'Interpreter', 'latex');
+    if i==1, legend('Interpreter', 'latex'); end
+end
+
+%% ERRORI E BOUNDS UKF + WIND
+figure('Name', 'Errori e Bounds 3-Sigma UKF (+ WIND)', 'NumberTitle', 'off');
+for i=1:4
+    sigma_UKF_W = squeeze(sqrt(log_UKF.P_corr_W(i,i,:)))';
+    subplot(2,2,i); hold on; grid on;
+    plot(t, err_UKF_W(i,:), 'r', 'DisplayName', 'Errore UKF');
+    plot(t,  3*sigma_UKF_W, 'k--', 'DisplayName', '$\pm 3\sigma$');
+    plot(t, -3*sigma_UKF_W, 'k--', 'HandleVisibility', 'off');
+    title(['Errore su ', titles_W{i}], 'Interpreter', 'latex');
+    if i==1, legend('Interpreter', 'latex'); end
+end
+
+%% INNOVAZIONI SEPARATE + WIND
+figure('Name', 'Innovazioni EKF (+ WIND)', 'NumberTitle', 'off');
+for i=1:2
+    subplot(2,1,i); hold on; grid on;
+    plot(t, log_EKF.innovation_W(i,:), 'b');
+    ylabel(meas_labels{i});
+    if i==1, title('Innovazioni EKF (+ WIND)'); end
+end
+
+figure('Name', 'Innovazioni UKF (+ WIND)', 'NumberTitle', 'off');
+for i=1:2
+    subplot(2,1,i); hold on; grid on;
+    plot(t, log_UKF.innovation_W(i,:), 'r');
+    ylabel(meas_labels{i});
+    if i==1, title('Innovazioni UKF (+ WIND)'); end
+end
+
+
+% =======================================================
+% 5. GRAFICI DI CONFRONTO (RMSE)
+% =======================================================
+disp('Generazione dei grafici quantitativi RMSE (Confronto EKF vs UKF)...');
+
+rmse_EKF = sqrt(mean(err_EKF.^2, 2));
+rmse_UKF = sqrt(mean(err_UKF.^2, 2));
+figure('Name', 'Confronto Quantitativo RMSE (Nominale)', 'NumberTitle', 'off');
+b = bar([rmse_EKF, rmse_UKF]);
+b(1).FaceColor = 'b'; % EKF Blu
+b(2).FaceColor = 'r'; % UKF Rosso
+set(gca, 'TickLabelInterpreter', 'latex', 'XTickLabel', {'$\alpha$', '$\dot{\alpha}$', '$\beta$', '$\dot{\beta}$'});
+ylabel('Root Mean Square Error (RMSE)');
+title('Confronto RMSE (Scenario Nominale)');
+legend('EKF', 'UKF');
+
+rmse_EKF_W = sqrt(mean(err_EKF_W.^2, 2));
+rmse_UKF_W = sqrt(mean(err_UKF_W.^2, 2));
+figure('Name', 'Confronto Quantitativo RMSE (+ WIND)', 'NumberTitle', 'off');
+b_w = bar([rmse_EKF_W, rmse_UKF_W]);
+b_w(1).FaceColor = 'b'; % EKF Blu
+b_w(2).FaceColor = 'r'; % UKF Rosso
+set(gca, 'TickLabelInterpreter', 'latex', 'XTickLabel', {'$\alpha$', '$\dot{\alpha}$', '$\beta$', '$\dot{\beta}$'});
+ylabel('Root Mean Square Error (RMSE)');
+title('Confronto RMSE (Scenario con Vento)');
+legend('EKF', 'UKF');
+
+disp('Analisi completata con successo! Dati salvati per lo Smoother RTS.');
+
+% Aggiornamento colori sfondi figure
+h = findall(0, 'Type', 'figure');
+for i = 1:length(h)
+    set(h(i), 'Color', 'w');
+    ax = findall(h(i), 'Type', 'axes');
+    set(ax, 'Color', 'w', 'XColor', 'k', 'YColor', 'k', 'GridColor', 'k');
+end
+
 function data = get_sim_data(sim_var)
     if isa(sim_var, 'timeseries')
         data = sim_var.Data;

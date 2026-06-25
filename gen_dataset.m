@@ -32,9 +32,9 @@ den_pade = [tau_d/2, 1];
 % ==========================================
 % 4. MATRICI DI TUNING PER I FILTRI (EKF / UKF)
 % ==========================================
-std_w_alpha = 0.02; 
+std_w_alpha = 0.03; 
 std_w_beta = 0.02;  
-std_w_alpha_dot = 0.55; % Parametro critico per assorbire ritardi e dinamiche
+std_w_alpha_dot = 0.75; % Parametro critico per assorbire ritardi e dinamiche
 std_w_beta_dot = 0.25;
 
 std_v_acc = 0.25; 
