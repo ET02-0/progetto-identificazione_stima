@@ -16,9 +16,6 @@ log_EKF.P_smoothed = zeros(4, 4, N);
 log_EKF.x_hat_smoothed(:, N) = log_EKF.x_hat(:, N);
 log_EKF.P_smoothed(:, :, N)  = log_EKF.P_corr(:, :, N);
 
-% Inizializzazione all'ultimo istante (t = N)
-log_EKF.x_hat_smoothed(:, N) = log_EKF.x_hat(:, N);
-log_EKF.P_smoothed(:, :, N)  = log_EKF.P_corr(:, :, N);
 
 % =======================================================
 % RICORSIONE BACKWARD (SENZA VENTO)
