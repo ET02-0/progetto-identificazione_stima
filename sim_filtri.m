@@ -28,9 +28,9 @@ x_T_W = get_sim_data(out.x_T_sim_W);
 log_EKF.x_hat = get_sim_data(out.x_hat_EKF);
 log_EKF.P_corr = get_sim_data(out.P_EKF);       
 log_EKF.innovation = get_sim_data(out.nu_EKF);
-log_EKF.x_hat_pred = get_sim_data(out.x_pred_EKF);  % Serve per RTS
-log_EKF.P_pred = get_sim_data(out.P_pred_EKF);      % Serve per RTS
-log_EKF.F_matrix = get_sim_data(out.F_EKF);         % Serve per RTS
+log_EKF.x_hat_pred = get_sim_data(out.x_pred_EKF);  
+log_EKF.P_pred = get_sim_data(out.P_pred_EKF);      
+log_EKF.F_matrix = get_sim_data(out.F_EKF);         
 
 % Dati UKF
 log_UKF.x_hat = get_sim_data(out.x_hat_UKF);
@@ -41,9 +41,9 @@ log_UKF.innovation = get_sim_data(out.nu_UKF);
 log_EKF.x_hat_W = get_sim_data(out.x_hat_EKF_W);
 log_EKF.P_corr_W = get_sim_data(out.P_EKF_W);       
 log_EKF.innovation_W = get_sim_data(out.nu_EKF_W);
-log_EKF.x_hat_pred_W = get_sim_data(out.x_pred_EKF_W);  % Serve per RTS
-log_EKF.P_pred_W = get_sim_data(out.P_pred_EKF_W);      % Serve per RTS
-log_EKF.F_matrix_W = get_sim_data(out.F_EKF_W);         % Serve per RTS
+log_EKF.x_hat_pred_W = get_sim_data(out.x_pred_EKF_W);  
+log_EKF.P_pred_W = get_sim_data(out.P_pred_EKF_W);      
+log_EKF.F_matrix_W = get_sim_data(out.F_EKF_W);         
 
 % Dati UKF + WIND
 log_UKF.x_hat_W = get_sim_data(out.x_hat_UKF_W);
@@ -61,159 +61,6 @@ err_UKF = x_T - log_UKF.x_hat;
 err_EKF_W = x_T_W - log_EKF.x_hat_W;
 err_UKF_W = x_T_W - log_UKF.x_hat_W;
 
-%{
-% =======================================================
-% 3. GENERAZIONE GRAFICI AVANZATI
-% =======================================================
-disp('Generazione dei grafici EKF vs UKF...');
-titles = {'$\alpha$ (Pitch) [rad]', '$\dot{\alpha}$ (Pitch Rate) [rad/s]', '$\beta$ (Yaw) [rad]', '$\dot{\beta}$ (Yaw Rate) [rad/s]'};
-
-%% GRAFICO 1: Traiettorie (Truth vs EKF vs UKF)
-figure('Name', 'Confronto Traiettorie', 'NumberTitle', 'off');
-for i=1:4
-    subplot(2,2,i); hold on; grid on;
-    plot(t, x_T(i,:), 'k', 'LineWidth', 1.5, 'DisplayName', 'True State');
-    plot(t, log_EKF.x_hat(i,:), 'r--', 'LineWidth', 1.2, 'DisplayName', 'EKF');
-    plot(t, log_UKF.x_hat(i,:), 'b-.', 'LineWidth', 1.2, 'DisplayName', 'UKF');
-    title(titles{i}, 'Interpreter', 'latex');
-    if i==1, legend('Location', 'best'); end
-end
-
-%% GRAFICO 2: Errori e Bound di Incertezza a 3-Sigma
-figure('Name', 'Errori e Bounds 3-Sigma (EKF vs UKF)', 'NumberTitle', 'off');
-for i=1:4
-    sigma_EKF = squeeze(sqrt(log_EKF.P_corr(i,i,:)))';
-    sigma_UKF = squeeze(sqrt(log_UKF.P_corr(i,i,:)))';
-    
-    % Subplot EKF
-    subplot(4,2, 2*i-1); hold on; grid on;
-    plot(t, err_EKF(i,:), 'r', 'LineWidth', 1);
-    plot(t,  3*sigma_EKF, 'k--', 'LineWidth', 1);
-    plot(t, -3*sigma_EKF, 'k--', 'LineWidth', 1);
-    ylabel(titles{i}, 'Interpreter', 'latex');
-    if i==1, title('Errore EKF e Bounds $\pm3\sigma$', 'Interpreter', 'latex'); end
-    
-    % Subplot UKF
-    subplot(4,2, 2*i); hold on; grid on;
-    plot(t, err_UKF(i,:), 'b', 'LineWidth', 1);
-    plot(t,  3*sigma_UKF, 'k--', 'LineWidth', 1);
-    plot(t, -3*sigma_UKF, 'k--', 'LineWidth', 1);
-    if i==1, title('Errore UKF e Bounds $\pm3\sigma$', 'Interpreter', 'latex'); end
-end
-
-%% GRAFICO 3: Analisi delle Innovazioni (Residui)
-figure('Name', 'Innovazioni del Filtro', 'NumberTitle', 'off');
-meas_labels = {'Innovazione Accelerometro', 'Innovazione Magnetometro'};
-for i=1:2
-    subplot(2,1,i); hold on; grid on;
-    plot(t, log_EKF.innovation(i,:), 'r', 'DisplayName', 'EKF');
-    plot(t, log_UKF.innovation(i,:), 'b', 'DisplayName', 'UKF');
-    ylabel(meas_labels{i});
-    legend;
-    if i==1, title('Analisi delle Innovazioni nel Tempo'); end
-end
-
-disp('Generazione dei grafici EKF vs UKF + WIND...');
-
-%% GRAFICO 4: Analisi Quantitativa (RMSE)
-rmse_EKF = sqrt(mean(err_EKF.^2, 2));
-rmse_UKF = sqrt(mean(err_UKF.^2, 2));
-
-figure('Name', 'Confronto Quantitativo RMSE', 'NumberTitle', 'off');
-bar_data = [rmse_EKF, rmse_UKF];
-bar(bar_data);
-set(gca, 'TickLabelInterpreter', 'latex', 'XTickLabel', {'$\alpha$', '$\dot{\alpha}$', '$\beta$', '$\dot{\beta}$'});
-ylabel('Root Mean Square Error (RMSE)');
-title('Confronto Errori Quadratici Medi Globali');
-legend('EKF', 'UKF');
-
-disp('Analisi completata con successo! Dati salvati per lo Smoother RTS.');
-
-titles = {'$\alpha$ (Pitch) + WIND [rad]', '$\dot{\alpha}$ (Pitch Rate) + WIND [rad/s]', '$\beta$ (Yaw) + WIND [rad]', '$\dot{\beta}$ (Yaw Rate) + WIND [rad/s]'};
-
-
-%% GRAFICO 5: Traiettorie (Truth vs EKF vs UKF) + WIND
-figure('Name', 'Confronto Traiettorie + WIND', 'NumberTitle', 'off');
-for i=1:4
-    subplot(2,2,i); hold on; grid on;
-    plot(t, x_T_W(i,:), 'k', 'LineWidth', 1.5, 'DisplayName', 'True State');
-    plot(t, log_EKF.x_hat_W(i,:), 'r--', 'LineWidth', 1.2, 'DisplayName', 'EKF');
-    plot(t, log_UKF.x_hat_W(i,:), 'b-.', 'LineWidth', 1.2, 'DisplayName', 'UKF');
-    title(titles{i}, 'Interpreter', 'latex');
-    if i==1, legend('Location', 'best'); end
-end
-
-%% GRAFICO 6: Errori e Bound di Incertezza a 3-Sigma + WIND
-figure('Name', 'Errori e Bounds 3-Sigma (EKF vs UKF) + WIND', 'NumberTitle', 'off');
-for i=1:4
-    sigma_EKF_W = squeeze(sqrt(log_EKF.P_corr_W(i,i,:)))';
-    sigma_UKF_W = squeeze(sqrt(log_UKF.P_corr_W(i,i,:)))';
-    
-    % Subplot EKF
-    subplot(4,2, 2*i-1); hold on; grid on;
-    plot(t, err_EKF_W(i,:), 'r', 'LineWidth', 1);
-    plot(t,  3*sigma_EKF_W, 'k--', 'LineWidth', 1);
-    plot(t, -3*sigma_EKF_W, 'k--', 'LineWidth', 1);
-    ylabel(titles{i}, 'Interpreter', 'latex');
-    if i==1, title('Errore EKF e Bounds $\pm3\sigma$ + WIND', 'Interpreter', 'latex'); end
-    
-    % Subplot UKF
-    subplot(4,2, 2*i); hold on; grid on;
-    plot(t, err_UKF_W(i,:), 'b', 'LineWidth', 1);
-    plot(t,  3*sigma_UKF_W, 'k--', 'LineWidth', 1);
-    plot(t, -3*sigma_UKF_W, 'k--', 'LineWidth', 1);
-    if i==1, title('Errore UKF e Bounds $\pm3\sigma$ + WIND', 'Interpreter', 'latex'); end
-end
-
-%% GRAFICO 7: Analisi delle Innovazioni (Residui) + WIND
-figure('Name', 'Innovazioni del Filtro + WIND', 'NumberTitle', 'off');
-meas_labels = {'Innovazione Accelerometro', 'Innovazione Magnetometro'};
-for i=1:2
-    subplot(2,1,i); hold on; grid on;
-    plot(t, log_EKF.innovation_W(i,:), 'r', 'DisplayName', 'EKF');
-    plot(t, log_UKF.innovation_W(i,:), 'b', 'DisplayName', 'UKF');
-    ylabel(meas_labels{i});
-    legend;
-    if i==1, title('Analisi delle Innovazioni nel Tempo + WIND'); end
-end
-
-%% GRAFICO 8: Analisi Quantitativa (RMSE) + WIND
-rmse_EKF_W = sqrt(mean(err_EKF_W.^2, 2));
-rmse_UKF_W = sqrt(mean(err_UKF_W.^2, 2));
-
-figure('Name', 'Confronto Quantitativo RMSE + WIND', 'NumberTitle', 'off');
-bar_data = [rmse_EKF_W, rmse_UKF_W];
-bar(bar_data);
-set(gca, 'TickLabelInterpreter', 'latex', 'XTickLabel', {'$\alpha$', '$\dot{\alpha}$', '$\beta$', '$\dot{\beta}$'});
-ylabel('Root Mean Square Error (RMSE)');
-title('Confronto Errori Quadratici Medi Globali + WIND');
-legend('EKF', 'UKF');
-
-disp('Analisi completata con successo! Dati salvati per lo Smoother RTS.');
-
-% Se hai già delle figure aperte, aggiornale tutte in un colpo solo:
-h = findall(0, 'Type', 'figure');
-for i = 1:length(h)
-    set(h(i), 'Color', 'w');
-    ax = findall(h(i), 'Type', 'axes');
-    set(ax, 'Color', 'w', 'XColor', 'k', 'YColor', 'k', 'GridColor', 'k');
-end
-
-% =======================================================
-% FUNZIONE HELPER LOCALE
-% =======================================================
-function data = get_sim_data(sim_var)
-    if isa(sim_var, 'timeseries')
-        data = sim_var.Data;
-    else
-        data = sim_var;
-    end
-    data = squeeze(data);
-    if ismatrix(data) && size(data, 1) > size(data, 2)
-        data = data';
-    end
-end
-%}
 % =======================================================
 % 3. GENERAZIONE GRAFICI AVANZATI (SCENARIO NOMINALE)
 % =======================================================
@@ -378,9 +225,19 @@ ylabel('Root Mean Square Error (RMSE)');
 title('Confronto RMSE (Scenario con Vento)');
 legend('EKF', 'UKF');
 
+% =======================================================
+% 6. TEST DI BIANCHEZZA (ANDERSON)
+% =======================================================
+disp('Esecuzione dei Test di Bianchezza di Anderson sulle innovazioni...');
+
+plot_anderson_whiteness(log_EKF.innovation, 'Test Bianchezza EKF (Nominale)', N);
+plot_anderson_whiteness(log_UKF.innovation, 'Test Bianchezza UKF (Nominale)', N);
+plot_anderson_whiteness(log_EKF.innovation_W, 'Test Bianchezza EKF (+ WIND)', N);
+plot_anderson_whiteness(log_UKF.innovation_W, 'Test Bianchezza UKF (+ WIND)', N);
+
 disp('Analisi completata con successo! Dati salvati per lo Smoother RTS.');
 
-% Aggiornamento colori sfondi figure
+% Aggiornamento colori sfondi figure (Applicato anche ai nuovi grafici)
 h = findall(0, 'Type', 'figure');
 for i = 1:length(h)
     set(h(i), 'Color', 'w');
@@ -388,6 +245,9 @@ for i = 1:length(h)
     set(ax, 'Color', 'w', 'XColor', 'k', 'YColor', 'k', 'GridColor', 'k');
 end
 
+% =======================================================
+% FUNZIONI HELPER LOCALI
+% =======================================================
 function data = get_sim_data(sim_var)
     if isa(sim_var, 'timeseries')
         data = sim_var.Data;
@@ -398,4 +258,66 @@ function data = get_sim_data(sim_var)
     if ismatrix(data) && size(data, 1) > size(data, 2)
         data = data';
     end
+end
+
+function plot_anderson_whiteness(innov, title_str, N_samples)
+    % Calcola un numero di lag sensato per la visualizzazione (es. max 50)
+    max_lag = min(500, round(N_samples/10)); 
+    conf_bound = 1.96 / sqrt(N_samples); % Limite di confidenza al 95%
+    
+    figure('Name', title_str, 'NumberTitle', 'off');
+    meas_labels = {'Innovazione Accelerometro', 'Innovazione Magnetometro'};
+    
+    fprintf('--- Risultati %s ---\n', title_str);
+    
+    for i = 1:2
+        nu = innov(i, :);
+        nu = nu - mean(nu); % Assicura media nulla
+        
+        % Calcolo manuale dell'autocorrelazione
+        r = zeros(1, max_lag + 1);
+        var_nu = sum(nu.^2);
+        if var_nu > 0
+            for k = 0:max_lag
+                r(k+1) = sum(nu(1:N_samples-k) .* nu(k+1:N_samples)) / var_nu;
+            end
+        end
+        lags = 0:max_lag;
+        
+        % --- VERIFICA NUMERICA DEL TEST ---
+        % Consideriamo i lag da 1 a max_lag (escludiamo il lag 0)
+        r_test = r(2:end);
+        
+        % Contiamo quanti punti sono fuori dal limite di confidenza
+        punti_fuori = sum(abs(r_test) > conf_bound);
+        percentuale_fuori = (punti_fuori / max_lag) * 100;
+        
+        % Se i punti fuori sono meno del 5%, il test è passato
+        if percentuale_fuori <= 5.0
+            esito = 'PASSATO (Innovazione Bianca)';
+        else
+            esito = 'FALLITO (Presenza di colorazione/correlazione)';
+        end
+        
+        % Stampa a schermo i risultati
+        fprintf('%s:\n  Esito: %s\n  Punti fuori limite: %d su %d (%.1f%%)\n', ...
+            meas_labels{i}, esito, punti_fuori, max_lag, percentuale_fuori);
+        
+        % --- PLOT ---
+        subplot(2,1,i); hold on; grid on;
+        stem(lags, r, 'filled', 'MarkerSize', 4, 'Color', '#0072BD');
+        
+        % Plot dei limiti di Anderson
+        yline(conf_bound, 'r--', 'LineWidth', 1.5, 'DisplayName', '95\% Bound');
+        yline(-conf_bound, 'r--', 'LineWidth', 1.5, 'HandleVisibility', 'off');
+        
+        % Estetica e Testi
+        title([title_str, ' - ', meas_labels{i}], 'Interpreter', 'none');
+        xlabel('Lag $\tau$', 'Interpreter', 'latex'); 
+        ylabel('Autocorrelazione $\rho(\tau)$', 'Interpreter', 'latex');
+        if i==1, legend('Location', 'best', 'Interpreter', 'latex'); end
+        ylim([-max(0.2, conf_bound*2.5), 1.1]);
+        xlim([-1, max_lag+1]);
+    end
+    fprintf('\n');
 end

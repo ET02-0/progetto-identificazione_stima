@@ -12,10 +12,25 @@ p.eps_p = 0.1; p.eps_y = 0.1; p.g = 9.81;
 p.rho = 1.225; 
 p.Cd_A = [0.5; 0.6; 1.2]; 
 
+% Pertutbazione dei parametri per incertezza sulla realtà
+p_hat = p; 
+
+% 2. Introduco il mismatch parametrico realistico
+p_hat.J_y = p.J_y * 1.15;       
+p_hat.J_z = p.J_z * 0.85;       
+p_hat.J_alpha = p.J_alpha * 1.15; 
+p_hat.I_b = p.I_b * 0.85;
+
+p_hat.c_alpha = p.c_alpha * 1.15; 
+p_hat.c_beta  = p.c_beta * 0.85;
+
+p_hat.eps_p = p.eps_p * 1.15;  
+p_hat.eps_y = p.eps_y * 0.85;
+
 % ==========================================
 % 2. CONFIGURAZIONE TEMPORALE
 % ==========================================
-dt = 0.01; % Passo di campionamento dei filtri discreti
+dt = 0.001; % Passo di campionamento dei filtri discreti
 t_max = 10;
 t = 0:dt:t_max;
 % ==========================================
@@ -48,7 +63,6 @@ x_0 = [0.1; 0; 0.1; 0];       % Stato iniziale reale del robot
 x_hat_0 = [0; 0; 0; 0];       % Stato iniziale stimato (leggermente sballato)
 u_0 = [0; 0];                 % Condizione iniziale del ritardo ingressi
 P_0 = eye(4) * 0.1;           % Incertezza iniziale sulla stima
-
 
 % ==========================================
 % 6. RACCOLTA DATI ESTRATTI E IMPACCHETTAMENTO
