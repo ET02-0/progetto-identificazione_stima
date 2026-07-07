@@ -39,7 +39,7 @@ t = 0:dt:t_max;
 omega_n = 30;   
 zeta = 0.7;     
 tau_d = 0.02;   
-num_2nd = [omega_n^2];
+num_2nd = omega_n^2;
 den_2nd = [1, 2*zeta*omega_n, omega_n^2];
 num_pade = [-tau_d/2, 1];
 den_pade = [tau_d/2, 1];
@@ -53,10 +53,16 @@ std_w_alpha_dot = 0.75; % Parametro critico per assorbire ritardi e dinamiche
 std_w_beta_dot = 0.25;
 
 std_v_acc = 0.25; 
-std_v_mag = 0.05; 
+std_v_mag = 0.1; 
 
-Q = diag([(std_w_alpha*dt)^2, (std_w_alpha_dot*dt)^2, (std_w_beta*dt)^2, (std_w_beta_dot*dt)^2]);
-R = diag([std_v_acc^2, std_v_mag^2]);
+Q = diag([
+1e-5
+1e-3
+1e-5
+1e-3
+]);
+%Q = diag([(std_w_alpha)^2, (std_w_alpha_dot)^2, (std_w_beta)^2, (std_w_beta_dot)^2]);
+R = diag([std_v_acc^2, std_v_mag^2, std_v_mag^2]);
 
 % Condizioni iniziali per la dinamica e per i filtri
 x_0 = [0.1; 0; 0.1; 0];       % Stato iniziale reale del robot

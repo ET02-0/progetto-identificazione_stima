@@ -57,9 +57,14 @@ save('simulink_smoother_data.mat', 't', 'N', 'x_T', 'x_T_W', 'log_EKF');
 % 2. CALCOLO ERRORI
 % =======================================================
 err_EKF = x_T - log_EKF.x_hat;
+err_EKF(3,:) = atan2(sin(err_EKF(3,:)), cos(err_EKF(3,:)));
 err_UKF = x_T - log_UKF.x_hat;
+err_UKF(3,:) = atan2(sin(err_UKF(3,:)), cos(err_UKF(3,:)));
 err_EKF_W = x_T_W - log_EKF.x_hat_W;
+err_EKF_W(3,:) = atan2(sin(err_EKF_W(3,:)), cos(err_EKF_W(3,:)));
 err_UKF_W = x_T_W - log_UKF.x_hat_W;
+err_UKF_W(3,:) = atan2(sin(err_UKF_W(3,:)), cos(err_UKF_W(3,:)));
+
 
 % =======================================================
 % 3. GENERAZIONE GRAFICI AVANZATI (SCENARIO NOMINALE)
@@ -262,7 +267,7 @@ end
 
 function plot_anderson_whiteness(innov, title_str, N_samples)
     % Calcola un numero di lag sensato per la visualizzazione (es. max 50)
-    max_lag = min(500, round(N_samples/10)); 
+    max_lag = min(50, round(N_samples/10)); 
     conf_bound = 1.96 / sqrt(N_samples); % Limite di confidenza al 95%
     
     figure('Name', title_str, 'NumberTitle', 'off');

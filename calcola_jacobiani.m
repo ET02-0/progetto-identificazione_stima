@@ -37,8 +37,10 @@ f_sym = [alpha + dt * alpha_dot;
 F_sym = jacobian(f_sym, x_sym);
 
 % 4. Costruzione equazioni di misura (h_sym) e Calcolo Jacobiano (H)
-h_sym = [-g * sin(alpha);
-          cos(alpha) * sin(beta)];
+h_sym = [-g*sin(alpha);
+        cos(alpha)*cos(beta);
+        -sin(beta)];
+
 H_sym = jacobian(h_sym, x_sym);
 
 % 5. Generazione fisica del file
