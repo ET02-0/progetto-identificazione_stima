@@ -92,6 +92,25 @@ for i=1:4
     if i==1, legend('Location', 'best'); end
 end
 
+% =======================================================
+% Limiti asse Y comuni EKF/UKF (Nominale)
+% =======================================================
+ylim_nom = zeros(4,2);
+
+for i = 1:4
+    sigma_EKF = squeeze(sqrt(log_EKF.P_corr(i,i,:)))';
+    sigma_UKF = squeeze(sqrt(log_UKF.P_corr(i,i,:)))';
+
+    lim = 1.05*max(abs([
+        err_EKF(i,:), ...
+        err_UKF(i,:), ...
+        3*sigma_EKF, ...
+        3*sigma_UKF
+    ]));
+
+    ylim_nom(i,:) = [-lim lim];
+end
+
 %% ERRORI E BOUNDS EKF
 figure('Name', 'Errori e Bounds 3-Sigma EKF (Nominale)', 'NumberTitle', 'off');
 for i=1:4
@@ -101,6 +120,7 @@ for i=1:4
     plot(t,  3*sigma_EKF, 'k--', 'DisplayName', '$\pm 3\sigma$');
     plot(t, -3*sigma_EKF, 'k--', 'HandleVisibility', 'off');
     title(['Errore su ', titles{i}], 'Interpreter', 'latex');
+    ylim(ylim_nom(i,:));
     if i==1, legend('Interpreter', 'latex'); end
 end
 
@@ -161,6 +181,25 @@ for i=1:4
     if i==1, legend('Location', 'best'); end
 end
 
+% =======================================================
+% Limiti asse Y comuni EKF/UKF (Nominale)
+% =======================================================
+ylim_nom = zeros(4,2);
+
+for i = 1:4
+    sigma_EKF = squeeze(sqrt(log_EKF.P_corr(i,i,:)))';
+    sigma_UKF = squeeze(sqrt(log_UKF.P_corr(i,i,:)))';
+
+    lim = 1.05*max(abs([
+        err_EKF(i,:), ...
+        err_UKF(i,:), ...
+        3*sigma_EKF, ...
+        3*sigma_UKF
+    ]));
+
+    ylim_nom(i,:) = [-lim lim];
+end
+
 %% ERRORI E BOUNDS EKF + WIND
 figure('Name', 'Errori e Bounds 3-Sigma EKF (+ WIND)', 'NumberTitle', 'off');
 for i=1:4
@@ -170,6 +209,7 @@ for i=1:4
     plot(t,  3*sigma_EKF_W, 'k--', 'DisplayName', '$\pm 3\sigma$');
     plot(t, -3*sigma_EKF_W, 'k--', 'HandleVisibility', 'off');
     title(['Errore su ', titles_W{i}], 'Interpreter', 'latex');
+    ylim(ylim_nom(i,:))
     if i==1, legend('Interpreter', 'latex'); end
 end
 
@@ -267,7 +307,7 @@ end
 
 function plot_anderson_whiteness(innov, title_str, N_samples)
     % Calcola un numero di lag sensato per la visualizzazione (es. max 50)
-    max_lag = min(50, round(N_samples/10)); 
+    max_lag = min(200, round(N_samples/10)); 
     conf_bound = 1.96 / sqrt(N_samples); % Limite di confidenza al 95%
     
     figure('Name', title_str, 'NumberTitle', 'off');

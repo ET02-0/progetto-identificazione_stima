@@ -20,31 +20,20 @@ log_EKF.P_smoothed(:, :, N)  = log_EKF.P_corr(:, :, N);
 % =======================================================
 % RICORSIONE BACKWARD (SENZA VENTO)
 % =======================================================
-% Matrice di stabilizzazione backward (Uccide l'anti-attrito)
-Q_RTS = diag([1e-2, 1e-2, 1e-2, 1e-2]); 
-
 for k = N-1:-1:1
-    P_k_k = log_EKF.P_corr(:,:,k);
+    P_k_k  = log_EKF.P_corr(:,:,k);
+    P_k1_k = log_EKF.P_pred(:,:,k+1);
+    F_k    = log_EKF.F_matrix(:,:,k+1);
     
-    % I tuoi dati perfetti e allineati
-    P_k1_k = log_EKF.P_pred(:,:,k+1); 
-    F_k = log_EKF.F_matrix(:,:,k+1);      
+    C_k = P_k_k * F_k' / P_k1_k;
     
-    % IL TRUCCO È QUI: Aggiungiamo Q_RTS direttamente alla tua matrice!
-    % Questo fa da "freno" e impedisce sia la divisione per zero sia l'esplosione.
-    P_k1_k_robusto = P_k1_k + Q_RTS;
+    err_x = log_EKF.x_hat_smoothed(:,k+1) - log_EKF.x_hat_pred(:,k+1);
+    log_EKF.x_hat_smoothed(:,k) = log_EKF.x_hat(:,k) + C_k*err_x;
     
-    % Calcolo robusto del guadagno C_k
-    C_k = P_k_k * F_k' / P_k1_k_robusto; 
-    
-    % Aggiornamento Stato
-    err_x = log_EKF.x_hat_smoothed(:, k+1) - log_EKF.x_hat_pred(:, k+1);
-    log_EKF.x_hat_smoothed(:, k) = log_EKF.x_hat(:, k) + C_k * err_x;
-    
-    % Aggiornamento Covarianza e Forzatura della Simmetria
     err_P = log_EKF.P_smoothed(:,:,k+1) - P_k1_k;
-    P_smooth_temp = P_k_k + C_k * err_P * C_k';
-    log_EKF.P_smoothed(:,:,k) = (P_smooth_temp + P_smooth_temp') / 2; 
+    P_smooth = P_k_k + C_k*err_P*C_k';
+    
+    log_EKF.P_smoothed(:,:,k) = (P_smooth + P_smooth')/2; 
 end
 % Calcolo Errori per confronto
 err_EKF = x_T - log_EKF.x_hat;
@@ -119,31 +108,21 @@ log_EKF.P_smoothed_W(:, :, N)  = log_EKF.P_corr_W(:, :, N);
 % =======================================================
 % RICORSIONE BACKWARD (+ WIND)
 % =======================================================
-% Matrice di stabilizzazione backward (usa lo stesso valore che ha funzionato prima)
-Q_RTS_W = diag([1e-2, 1e-2, 1e-2, 1e-2]); 
 
 for k = N-1:-1:1
-    P_corr_k_W = log_EKF.P_corr_W(:,:,k);
-    P_pred_k1_W = log_EKF.P_pred_W(:,:,k+1); 
-    F_k1_W = log_EKF.F_matrix_W(:,:,k+1);      
+    P_k_k_W = log_EKF.P_corr_W(:,:,k);
+    P_k1_k_W = log_EKF.P_pred_W(:,:,k+1); 
+    F_k_W = log_EKF.F_matrix_W(:,:,k+1);      
+        
+    C_k_W = P_k_k_W * F_k_W' / P_k1_k_W;
     
-    % FIX 1: Stabilizzazione fisica (freno)
-    % Aggiungiamo Q_RTS_W invece di usare solo l'epsilon
-    P_pred_reg_W = P_pred_k1_W + Q_RTS_W;
-    
-    % Guadagno dello smoother (standard stabile)
-    C_k_W = P_corr_k_W * F_k1_W' / P_pred_reg_W;
-    
-    % FIX 2: Aggiornamento Stato
     err_x_W = log_EKF.x_hat_smoothed_W(:, k+1) - log_EKF.x_hat_pred_W(:, k+1);
     log_EKF.x_hat_smoothed_W(:, k) = log_EKF.x_hat_W(:, k) + C_k_W * err_x_W;
     
-    % FIX 3: Aggiornamento Covarianza e Forzatura della Simmetria
-    err_P_W = log_EKF.P_smoothed_W(:,:,k+1) - P_pred_k1_W;
-    P_smooth_temp_W = P_corr_k_W + C_k_W * err_P_W * C_k_W';
+    err_P_W = log_EKF.P_smoothed_W(:,:,k+1) - P_k1_k_W;
+    P_smooth_W = P_k_k_W + C_k_W * err_P_W * C_k_W';
     
-    % Questa riga uccide definitivamente l'origine dei numeri complessi
-    log_EKF.P_smoothed_W(:,:,k) = (P_smooth_temp_W + P_smooth_temp_W') / 2; 
+    log_EKF.P_smoothed_W(:,:,k) = (P_smooth_W + P_smooth_W') / 2; 
 end
 % Calcolo Errori per confronto
 err_EKF_W = x_T_W - log_EKF.x_hat_W;
