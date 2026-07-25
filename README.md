@@ -1,0 +1,11 @@
+Identificazione e Stima: Elicottero 2DoF - Identificazione, Stima e Controllo Robusto
+
+Questo repository contiene il codice sorgente (MATLAB/Simulink) e la relazione tecnica sviluppati per il progetto del corso di Identificazione, Stima e Controllo Robusto della Laurea Magistrale in Robotica e Automazione dell'Università di Pisa (A.A. 2025/2026). Il progetto è stato realizzato in collaborazione con Luca Cecchi.
+
+**Panoramica del Progetto:** L'obiettivo del lavoro è la progettazione, l'analisi e l'implementazione di algoritmi avanzati di stima dello stato e filtraggio stocastico applicati a un sistema meccanico non lineare e fortemente accoppiato: un elicottero a due gradi di libertà (2DoF). Il sistema valuta e confronta le prestazioni di stimatori online (Extended e Unscented Kalman Filter) e di un algoritmo di regolarizzazione offline (RTS Smoother) in scenari realistici affetti da incertezza parametrica e disturbi aerodinamici esogeni.
+
+Il sistema sviluppato è in grado di:
+- **Simulare l'impianto e l'architettura sensoriale:** Modellazione della dinamica non lineare dell'elicottero con l'iniezione intenzionale di un mismatch parametrico ($\pm15\%$) e l'utilizzo di un modello sensoriale IMU multi-rate asincrono (accelerometro a 1000 Hz e magnetometro a 100 Hz).
+- **Stimare lo stato in tempo reale (EKF e UKF):** Implementazione custom in MATLAB dell'Extended Kalman Filter (con Jacobiani analitici esatti) e dell'Unscented Kalman Filter (formulazione Additive Noise). Entrambi gestiscono la mancanza asincrona di dati tramite una logica di rigetto degli outlier basata sulla Distanza di Mahalanobis (Gating statistico).
+- **Ottimizzare le traiettorie offline (RTS Smoother):** Applicazione dell'algoritmo non causale di Rauch-Tung-Striebel (Two-Pass Smoother) per elaborare a ritroso il datalog, dimezzando l'Errore Quadratico Medio (RMSE) sulle velocità angolari e abbattendo drasticamente l'incertezza globale rispetto ai filtri forward.
+- **Reiettare disturbi esogeni severi:** Validazione della stabilità e della robustezza degli algoritmi a fronte di una folata di vento continua non modellata internamente dai filtri, dimostrando la capacità degli osservatori (in particolar modo dell'RTS) di compensare l'alterazione dinamica senza violare i limiti teorici di confidenza a $\pm3\sigma$.
