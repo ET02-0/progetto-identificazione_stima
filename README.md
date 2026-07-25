@@ -1,4 +1,4 @@
-Identificazione e Stima: Elicottero 2DoF - Identificazione, Stima e Controllo Robusto
+Identificazione e Stima: Elicottero 2DoF - Identificazione e Stima
 
 Questo repository contiene il codice sorgente (MATLAB/Simulink) e la relazione tecnica sviluppati per il progetto del corso di Identificazione, Stima e Controllo Robusto della Laurea Magistrale in Robotica e Automazione dell'Università di Pisa (A.A. 2025/2026). Il progetto è stato realizzato in collaborazione con Luca Cecchi.
 
